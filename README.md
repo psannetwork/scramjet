@@ -33,6 +33,28 @@ Some of the popular websites that Scramjet supports include:
 -   [Binaryen's `wasm-opt`](https://github.com/WebAssembly/binaryen)
 -   [this `wasm-snip` fork](https://github.com/r58Playz/wasm-snip)
 
+
+# 依存パッケージのインストール
+sudo apt update
+sudo apt install -y curl make cmake build-essential git binaryen
+
+# Rust のインストール（すでに入っていればスキップ可）
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+source $HOME/.cargo/env
+
+# wasm32ターゲットの追加（RustでWASM出力するため）
+rustup target add wasm32-unknown-unknown
+
+# wasm-bindgen CLI のインストール
+cargo install wasm-bindgen-cli
+
+# wasm-snip のインストール
+cargo install wasm-snip
+
+# wasm-opt は binaryen に含まれてるため、すでにインストール済み
+wasm-opt --version  # 動作確認（バージョンが出ればOK）
+
+
 #### Building
 
 -   Clone the repository with `git clone --recursive https://github.com/MercuryWorkshop/scramjet`
