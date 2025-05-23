@@ -1,6 +1,7 @@
 import { defineConfig } from "@rspack/cli";
 import { rspack } from "@rspack/core";
 import { RsdoctorRspackPlugin } from "@rsdoctor/rspack-plugin";
+import { TsCheckerRspackPlugin } from "ts-checker-rspack-plugin";
 
 import { readFile } from "node:fs/promises";
 import { execSync } from "node:child_process";
@@ -29,14 +30,12 @@ export default defineConfig({
 				loader: "builtin:swc-loader",
 				exclude: ["/node_modules/"],
 				options: {
-					asdasdasds: new Error(),
 					jsc: {
 						parser: {
 							syntax: "typescript",
 						},
 						target: "es2022",
 					},
-					strictMode: false,
 					module: {
 						type: "es6",
 						strict: false,
@@ -60,6 +59,7 @@ export default defineConfig({
 		iife: true,
 	},
 	plugins: [
+		new TsCheckerRspackPlugin(),
 		new rspack.ProvidePlugin({
 			dbg: [join(__dirname, "src/log.ts"), "default"],
 		}),
@@ -69,14 +69,14 @@ export default defineConfig({
 		new rspack.DefinePlugin({
 			COMMITHASH: (() => {
 				try {
-					let hash = JSON.stringify(
+					const hash = JSON.stringify(
 						execSync("git rev-parse --short HEAD", {
 							encoding: "utf-8",
 						}).replace(/\r?\n|\r/g, "")
 					);
 
 					return hash;
-				} catch (e) {
+				} catch {
 					return "unknown";
 				}
 			})(),

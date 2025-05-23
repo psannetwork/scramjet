@@ -1,8 +1,13 @@
 import { SCRAMJETCLIENT } from "../../symbols";
 import { ScramjetClient } from "../client";
 import { nativeGetOwnPropertyDescriptor } from "../natives";
-import { unrewriteUrl, htmlRules, unrewriteHtml } from "../../shared";
-import { rewriteCss, rewriteHtml, rewriteJs } from "../../shared";
+import {
+	unrewriteUrl,
+	rewriteUrl,
+	htmlRules,
+	unrewriteHtml,
+} from "../../shared";
+import { unrewriteCss, rewriteCss, rewriteHtml, rewriteJs } from "../../shared";
 
 const encoder = new TextEncoder();
 function bytesToBase64(bytes: Uint8Array) {
@@ -241,7 +246,7 @@ export default function (client: ScramjetClient, self: typeof window) {
 		},
 	});
 
-	client.Trap("Element.prototype.innerHTML", {
+	client.Trap(["Element.prototype.innerHTML", "Node.prototype.textContent"], {
 		set(ctx, value: string) {
 			let newval;
 			if (ctx.this instanceof self.HTMLScriptElement) {
@@ -327,6 +332,51 @@ export default function (client: ScramjetClient, self: typeof window) {
 				} catch {}
 		},
 	});
+	client.Proxy("Audio", {
+		construct(ctx) {
+			if (ctx.args[0]) ctx.args[0] = rewriteUrl(ctx.args[0], client.meta);
+		},
+	});
+	client.Proxy("Text.prototype.appendData", {
+		apply(ctx) {
+			if (ctx.this.parentElement?.tagName === "STYLE") {
+				ctx.args[0] = rewriteCss(ctx.args[0], client.meta);
+			}
+		},
+	});
+
+	client.Proxy("Text.prototype.insertData", {
+		apply(ctx) {
+			if (ctx.this.parentElement?.tagName === "STYLE") {
+				ctx.args[1] = rewriteCss(ctx.args[1], client.meta);
+			}
+		},
+	});
+
+	client.Proxy("Text.prototype.replaceData", {
+		apply(ctx) {
+			if (ctx.this.parentElement?.tagName === "STYLE") {
+				ctx.args[2] = rewriteCss(ctx.args[2], client.meta);
+			}
+		},
+	});
+
+	client.Trap("Text.prototype.wholeText", {
+		get(ctx) {
+			if (ctx.this.parentElement?.tagName === "STYLE") {
+				return unrewriteCss(ctx.get() as string);
+			}
+
+			return ctx.get();
+		},
+		set(ctx, v) {
+			if (ctx.this.parentElement?.tagName === "STYLE") {
+				return ctx.set(rewriteCss(v as string, client.meta));
+			}
+
+			return ctx.set(v);
+		},
+	});
 
 	client.Trap(
 		[
@@ -390,6 +440,7 @@ export default function (client: ScramjetClient, self: typeof window) {
 			apply(ctx) {
 				const doc = ctx.call();
 				if (doc) {
+					// we trap the contentDocument, this is really the scramjet version
 					return ctx.return(ctx.this.contentDocument);
 				}
 			},
@@ -454,7 +505,6 @@ export default function (client: ScramjetClient, self: typeof window) {
 			},
 		}
 	);
-
 	client.Proxy("Node.prototype.getRootNode", {
 		apply(ctx) {
 			const n = ctx.call() as Node;

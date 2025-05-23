@@ -248,25 +248,32 @@ export default function (client: ScramjetClient, self: typeof globalThis) {
 				barews.close(1000, "");
 			});
 			let openResolver, closeResolver;
+			let openRejector;
 			const state: FakeWebSocketStreamState = {
 				extensions: "",
 				protocol: "",
 				url: ctx.args[0],
 				barews,
 
-				opened: new Promise((resolve) => {
+				opened: new Promise((resolve, reject) => {
 					openResolver = resolve;
+					openRejector = reject;
 				}),
 				closed: new Promise((resolve) => {
 					closeResolver = resolve;
 				}),
 				readable: new ReadableStream({
 					start(controller) {
-						barews.addEventListener("message", (ev: MessageEvent) => {
-							const payload = ev.data;
+						barews.addEventListener("message", async (ev: MessageEvent) => {
+							let payload = ev.data;
 							if (typeof payload === "string") {
 								// DO NOTHING
 							} else if ("byteLength" in payload) {
+								// arraybuffer, set the realms prototype so its recognized
+								Object.setPrototypeOf(payload, ArrayBuffer.prototype);
+							} else if ("arrayBuffer" in payload) {
+								// blob, convert to arraybuffer
+								payload = await payload.arrayBuffer();
 								Object.setPrototypeOf(payload, ArrayBuffer.prototype);
 							}
 							controller.enqueue(payload);
@@ -289,6 +296,10 @@ export default function (client: ScramjetClient, self: typeof globalThis) {
 			});
 			barews.addEventListener("close", (ev: CloseEvent) => {
 				closeResolver({ code: ev.code, reason: ev.reason });
+			});
+
+			barews.addEventListener("error", (ev: Event) => {
+				openRejector(ev);
 			});
 
 			socketstreammap.set(fakeWebSocket, state);

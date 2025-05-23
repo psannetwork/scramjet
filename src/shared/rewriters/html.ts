@@ -64,7 +64,9 @@ export function rewriteHtml(
 		);
 	}
 
-	return render(handler.root);
+	return render(handler.root, {
+		encodeEntities: "utf8",
+	});
 }
 
 // type ParseState = {
@@ -104,7 +106,9 @@ export function unrewriteHtml(html: string) {
 
 	traverse(handler.root);
 
-	return render(handler.root);
+	return render(handler.root, {
+		encodeEntities: "utf8",
+	});
 }
 
 export const htmlRules: {
@@ -189,6 +193,7 @@ export const htmlRules: {
 	{
 		fn: (value: string) => {
 			if (["_parent", "_top", "_unfencedTop"].includes(value)) return "_self";
+			else return value;
 		},
 		target: ["a", "base"],
 	},

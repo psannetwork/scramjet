@@ -46,11 +46,15 @@ export function rewriteUrl(url: string | URL, meta: URLMeta) {
 		if (base.startsWith("about:")) base = unrewriteUrl(self.location.href); // jank!!!!! weird jank!!!
 		const realUrl = tryCanParseURL(url, base);
 		if (!realUrl) return url;
+		const encodedHash = $scramjet.codec.encode(realUrl.hash.slice(1));
+		const realHash = encodedHash ? "#" + encodedHash : "";
+		realUrl.hash = "";
 
 		return (
 			location.origin +
 			$scramjet.config.prefix +
-			$scramjet.codec.encode(realUrl.href)
+			$scramjet.codec.encode(realUrl.href) +
+			realHash
 		);
 	}
 }
@@ -72,11 +76,15 @@ export function unrewriteUrl(url: string | URL) {
 		return url.substring(prefixed.length);
 	} else if (url.startsWith("mailto:") || url.startsWith("about:")) {
 		return url;
-	} else if (tryCanParseURL(url)) {
-		return $scramjet.codec.decode(
-			url.slice((location.origin + $scramjet.config.prefix).length)
-		);
 	} else {
-		return url;
+		const realUrl = tryCanParseURL(url);
+		if (!realUrl) return url;
+		const decodedHash = $scramjet.codec.decode(realUrl.hash.slice(1));
+		const realHash = decodedHash ? "#" + decodedHash : "";
+		realUrl.hash = "";
+
+		return $scramjet.codec.decode(
+			realUrl.href.slice(prefixed.length) + realHash
+		);
 	}
 }
