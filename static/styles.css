@@ -1,0 +1,161 @@
+/* Base Styles */
+body,
+html,
+#app {
+	margin: 0;
+	padding: 0;
+	width: 100vw;
+	height: 100vh;
+	background-color: #050505;
+	overflow: hidden;
+	font-family:
+		"Inter",
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		sans-serif;
+	color: #e0def4;
+}
+
+/* Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono :wght@400;600&family=Inter+Tight:wght@400;600&family=Inter:wght@400;600&display=swap");
+
+/* Layout */
+#app {
+	display: flex;
+	flex-direction: column;
+}
+
+/* Navigation Bar */
+.nav {
+	display: flex;
+	align-items: center;
+	gap: 0.3em;
+	padding: 0.3em 0;
+}
+
+/* Buttons */
+button {
+	border: none;
+	border-radius: 0.75em;
+	padding: 0.45em 0.8em;
+	background-color: #121212;
+	border: 1px solid #313131;
+	color: white;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+button:hover {
+	background-color: #1a1a1a;
+	border-color: #4c8bf5;
+}
+
+/* Input Fields */
+.bar {
+	font-family: "Inter";
+	padding: 0.1em 0.3em;
+	border: none;
+	outline: none;
+	color: #fff;
+	height: 2em;
+	border-radius: 0.3em;
+	flex: 1;
+	background-color: #121212;
+	border: 1px solid #313131;
+	transition: border-color 0.2s ease;
+}
+
+.bar:focus {
+	border-color: #4c8bf5;
+}
+
+/* Version Info */
+.version {
+	font-size: 0.8em;
+	margin-left: auto;
+	padding-left: 1em;
+}
+
+.version a {
+	color: #4c8bf5;
+	text-decoration: none;
+}
+
+/* Frame */
+iframe {
+	flex: 1;
+	width: 100%;
+	height: 100%;
+	border: none;
+	border-radius: 0;
+	background-color: #fff;
+}
+
+/* Modal Dialog */
+dialog.cfg {
+	background-color: #121212;
+	color: white;
+	border-radius: 8px;
+	padding: 1em;
+	max-width: 500px;
+	margin: auto;
+	animation: fade 0.4s ease normal;
+}
+
+dialog::backdrop {
+	backdrop-filter: blur(3px);
+}
+
+.modal-content {
+	display: flex;
+	flex-direction: column;
+	gap: 1em;
+}
+
+.input_row {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3em;
+}
+
+.input_row label {
+	font-size: 0.7rem;
+	color: gray;
+}
+
+.input_row input {
+	background-color: #181818;
+	border: 2px solid #313131;
+	border-radius: 0.75em;
+	color: #fff;
+	outline: none;
+	padding: 0.45em;
+	transition: border-color 0.2s ease;
+}
+
+.input_row input:focus {
+	border-color: #4c8bf5;
+}
+
+.buttons {
+	display: flex;
+	gap: 0.5em;
+	justify-content: center;
+	margin-top: 1em;
+}
+.frame-container {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+/* Transitions */
+@keyframes fade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
