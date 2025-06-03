@@ -12,8 +12,9 @@ use oxc::{
 };
 
 use crate::{
-	cfg::Config,
-	changes::{JsChanges, Rewrite},
+	cfg::{Config, Flags, UrlRewriter},
+	changes::JsChanges,
+	rewrite::Rewrite,
 };
 
 // js MUST not be able to get a reference to any of these because sbx
@@ -34,20 +35,24 @@ const UNSAFE_GLOBALS: &[&str] = &[
 
 pub struct Visitor<'alloc, 'data, E>
 where
-	E: Fn(&str, &mut StringBuilder<'alloc>),
+	E: UrlRewriter,
 {
-	pub jschanges: JsChanges<'alloc, 'data>,
-	pub config: Config<'alloc, E>,
 	pub alloc: &'alloc Allocator,
+	pub jschanges: JsChanges<'alloc, 'data>,
+
+	pub config: &'data Config,
+	pub rewriter: &'data E,
+	pub flags: Flags,
 }
 
 impl<'alloc, 'data, E> Visitor<'alloc, 'data, E>
 where
-	E: Fn(&str, &mut StringBuilder<'alloc>),
+	E: UrlRewriter,
 {
 	fn rewrite_url(&mut self, url: Atom<'data>) -> &'alloc str {
-		let mut builder = StringBuilder::from_str_in(self.config.prefix, self.alloc);
-		(self.config.urlrewriter)(&url, &mut builder);
+		let mut builder = StringBuilder::from_str_in(&self.config.prefix, self.alloc);
+		self.rewriter
+			.rewrite(self.config, &self.flags, &url, &mut builder);
 		builder.into_str()
 	}
 
@@ -77,9 +82,9 @@ where
 	}
 }
 
-impl<'alloc, 'data, E> Visit<'data> for Visitor<'alloc, 'data, E>
+impl<'data, E> Visit<'data> for Visitor<'_, 'data, E>
 where
-	E: Fn(&str, &mut StringBuilder<'alloc>),
+	E: UrlRewriter,
 {
 	fn visit_identifier_reference(&mut self, it: &IdentifierReference) {
 		// if self.config.capture_errors {
@@ -121,14 +126,14 @@ where
 				return; // unwise to walk the rest of the tree
 			}
 
-			if !self.config.strict_rewrites && !UNSAFE_GLOBALS.contains(&s.property.name.as_str()) {
+			if !self.flags.strict_rewrites && !UNSAFE_GLOBALS.contains(&s.property.name.as_str()) {
 				if let Expression::Identifier(_) | Expression::ThisExpression(_) = &s.object {
 					// cull tree - this should be safe
 					return;
 				}
 			}
 
-			if self.config.scramitize
+			if self.flags.scramitize
 				&& !matches!(s.object, Expression::MetaProperty(_) | Expression::Super(_))
 			{
 				self.scramitize(s.object.span());
@@ -163,7 +168,7 @@ where
 				return;
 			}
 		}
-		if self.config.scramitize {
+		if self.flags.scramitize {
 			self.scramitize(it.span);
 		}
 		walk::walk_call_expression(self, it);
@@ -206,7 +211,7 @@ where
 	fn visit_try_statement(&mut self, it: &oxc::ast::ast::TryStatement<'data>) {
 		// for debugging we need to know what the error was
 
-		if self.config.capture_errors {
+		if self.flags.capture_errors {
 			if let Some(h) = &it.handler {
 				if let Some(name) = &h.param {
 					if let Some(ident) = name.pattern.get_identifier_name() {
@@ -241,7 +246,7 @@ where
 
 	fn visit_function_body(&mut self, it: &FunctionBody<'data>) {
 		// tag function for use in sourcemaps
-		if self.config.do_sourcemaps {
+		if self.flags.do_sourcemaps {
 			self.jschanges.add(Rewrite::SourceTag {
 				span: Span::new(it.span.start, it.span.start),
 			});
