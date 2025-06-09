@@ -1,5 +1,6 @@
 use std::cell::BorrowMutError;
 
+use html::RewriterError as HtmlRewriterError;
 use js::RewriterError as JsRewriterError;
 use js_sys::Error;
 use thiserror::Error;
@@ -9,10 +10,13 @@ use wasm_bindgen::{JsError, JsValue};
 pub enum RewriterError {
 	#[error("JS: {0}")]
 	Js(String),
-	#[error("str fromutf8 error: {0}")]
-	Str(#[from] std::str::Utf8Error),
 	#[error("JS Rewriter: {0}")]
 	JsRewriter(#[from] JsRewriterError),
+	#[error("HTML Rewriter: {0}")]
+	HtmlRewriter(#[from] HtmlRewriterError),
+
+	#[error("str fromutf8 error: {0}")]
+	Str(#[from] std::str::Utf8Error),
 	#[error("reflect set failed: {0}")]
 	ReflectSetFail(String),
 	#[error("Rewriter was already rewriting")]
@@ -37,6 +41,10 @@ impl From<RewriterError> for JsValue {
 impl RewriterError {
 	pub fn not_str(x: &'static str) -> Self {
 		Self::Not(x, "string")
+	}
+
+	pub fn not_arr(x: &'static str) -> Self {
+		Self::Not(x, "array")
 	}
 
 	pub fn not_fn(x: &'static str) -> Self {

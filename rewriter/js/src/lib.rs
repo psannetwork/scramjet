@@ -10,8 +10,8 @@ use oxc::{
 use thiserror::Error;
 
 pub mod cfg;
-mod rewrite;
 mod changes;
+mod rewrite;
 mod visitor;
 
 use cfg::{Config, Flags, UrlRewriter};
@@ -20,19 +20,20 @@ use visitor::Visitor;
 
 #[derive(Error, Debug)]
 pub enum RewriterError {
-	#[error("oxc panicked in parser: {0}")]
-	OxcPanicked(String),
-	#[error("out of bounds while applying range: {0}..{1})")]
-	Oob(u32, u32),
-	#[error("too much code added while applying changes")]
-	AddedTooLarge,
+	#[error("transformer error: {0}")]
+	Transformer(#[from] transform::TransformError),
+	#[error("url rewriter error: {0}")]
+	Url(Box<dyn std::error::Error + Sync + Send>),
 	#[error("formatting error: {0}")]
 	Formatting(#[from] std::fmt::Error),
+
+	#[error("oxc panicked in parser: {0}")]
+	OxcPanicked(String),
 	#[error("Already rewriting")]
 	AlreadyRewriting,
 	#[error("Not rewriting")]
 	NotRewriting,
-	#[error("JsChanges left over")]
+	#[error("Changes left over")]
 	Leftover,
 }
 
@@ -49,16 +50,16 @@ pub struct Rewriter<E: UrlRewriter> {
 	cfg: Config,
 	url: E,
 
-	jschanges: RefCell<Option<JsChanges<'static, 'static>>>,
+	changes: RefCell<Option<JsChanges<'static, 'static>>>,
 }
 
 impl<E: UrlRewriter> Rewriter<E> {
-	fn take_jschanges<'alloc: 'data, 'data>(
+	fn take_changes<'alloc: 'data, 'data>(
 		&'data self,
 		alloc: &'alloc Allocator,
 	) -> Result<JsChanges<'alloc, 'data>, RewriterError> {
 		let mut slot = self
-			.jschanges
+			.changes
 			.try_borrow_mut()
 			.map_err(|_| RewriterError::AlreadyRewriting)?;
 
@@ -73,7 +74,7 @@ impl<E: UrlRewriter> Rewriter<E> {
 			})
 	}
 
-	fn put_jschanges<'alloc: 'data, 'data>(
+	fn put_changes<'alloc: 'data, 'data>(
 		&'data self,
 		mut changes: JsChanges<'alloc, 'data>,
 	) -> Result<(), RewriterError> {
@@ -82,7 +83,7 @@ impl<E: UrlRewriter> Rewriter<E> {
 		}
 
 		let mut slot = self
-			.jschanges
+			.changes
 			.try_borrow_mut()
 			.map_err(|_| RewriterError::AlreadyRewriting)?;
 
@@ -107,7 +108,7 @@ impl<E: UrlRewriter> Rewriter<E> {
 		Self {
 			cfg,
 			url: url_rewriter,
-			jschanges: RefCell::new(Some(JsChanges::new())),
+			changes: RefCell::new(Some(JsChanges::new())),
 		}
 	}
 
@@ -139,25 +140,29 @@ impl<E: UrlRewriter> Rewriter<E> {
 			return Err(RewriterError::OxcPanicked(errors));
 		}
 
-		let jschanges = self.take_jschanges(alloc)?;
+		let jschanges = self.take_changes(alloc)?;
 
 		let mut visitor = Visitor {
 			alloc,
 			jschanges,
+			error: None,
 
 			config: &self.cfg,
 			rewriter: &self.url,
 			flags,
 		};
 		visitor.visit_program(&parsed.program);
+		if let Some(error) = visitor.error {
+			return Err(RewriterError::Url(error));
+		}
 		let mut jschanges = visitor.jschanges;
 
 		let changed = jschanges.perform(js, &self.cfg, &visitor.flags)?;
 
-		self.put_jschanges(jschanges)?;
+		self.put_changes(jschanges)?;
 
-		let js: Vec<'alloc, u8> = changed.js;
-		let sourcemap: Vec<'alloc, u8> = changed.sourcemap;
+		let js: Vec<'alloc, u8> = changed.source;
+		let sourcemap: Vec<'alloc, u8> = changed.map;
 
 		Ok(RewriteResult {
 			js,
